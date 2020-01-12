@@ -30,7 +30,7 @@ export async function newPlugin(config: Config) {
     {
       type: 'input',
       name: 'name',
-      message: 'Plugin NPM name (snake-case):',
+      message: 'Plugin NPM name (kebab-case):',
       validate: function(input) {
         if (!input || input.trim() === '') {
           return false;
@@ -231,7 +231,7 @@ function generatePackageJSON(answers: any) {
     types: 'dist/esm/index.d.ts',
     scripts: {
       'build': 'npm run clean && tsc',
-      'clean': 'rm -rf ./dist',
+      'clean': 'rimraf ./dist',
       'watch': 'tsc --watch',
       'prepublishOnly': 'npm run build'
     },
@@ -241,6 +241,7 @@ function generatePackageJSON(answers: any) {
       '@capacitor/core': 'latest'
     },
     devDependencies: {
+      'rimraf': '^3.0.0',
       'typescript': '^3.2.4',
       '@capacitor/ios': 'latest',
       '@capacitor/android': 'latest'
