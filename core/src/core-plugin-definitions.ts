@@ -664,12 +664,6 @@ export interface MkdirOptions {
    */
   directory?: FilesystemDirectory;
   /**
-   * @deprecated - use recursive
-   * Whether to create any missing parent directories as well
-   * Defaults to false
-   */
-  createIntermediateDirectories?: boolean;
-  /**
    * Whether to create any missing parent directories as well.
    * Defaults to false
    */
@@ -839,19 +833,8 @@ export interface GeolocationPosition {
 
 export interface GeolocationOptions {
   enableHighAccuracy?: boolean; // default: false
-  timeout?: number; // default: 10000,
+  timeout?: number; // default: 10000
   maximumAge?: number; // default: 0
-  /**
-   * Whether your app needs altitude data or not. This can impact the
-   * sensor the device uses, increasing energy consumption.
-   * Note: altitude information may not be available even when
-   * passing true here. Similarly, altitude data maybe be returned
-   * even if this value is false, in the case where doing so requires
-   * no increased energy consumption.
-   *
-   * Default: false
-   */
-  requireAltitude?: boolean; // default: false
 }
 
 export type GeolocationWatchCallback = (position: GeolocationPosition, err?: any) => void;
@@ -1652,6 +1635,9 @@ export interface ToastPlugin extends Plugin {
 
 export interface ToastShowOptions {
   text: string;
+  /**
+   * Duration of the toast, either 'short' (2000ms, default) or 'long' (3500ms)
+   */
   duration?: 'short' | 'long';
   position?: 'top' | 'center' | 'bottom';
 }
