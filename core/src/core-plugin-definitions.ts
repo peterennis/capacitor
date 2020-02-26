@@ -608,6 +608,11 @@ export interface FileWriteOptions {
    * Pass FilesystemEncoding.UTF8 to write data as string
    */
   encoding?: FilesystemEncoding;
+  /**
+   * Whether to create any missing parent directories.
+   * Defaults to false
+   */
+  recursive?: boolean;
 }
 
 export interface FileAppendOptions {
@@ -754,6 +759,7 @@ export interface FileReadResult {
 export interface FileDeleteResult {
 }
 export interface FileWriteResult {
+  uri: string;
 }
 export interface FileAppendResult {
 }
