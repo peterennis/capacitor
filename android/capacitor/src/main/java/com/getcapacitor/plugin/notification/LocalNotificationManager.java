@@ -155,6 +155,10 @@ public class LocalNotificationManager {
             .setGroupSummary(localNotification.isGroupSummary())
             .setDefaults(Notification.DEFAULT_SOUND | Notification.DEFAULT_VIBRATE | Notification.DEFAULT_LIGHTS);
 
+
+    // support multiline text
+    mBuilder.setStyle(new NotificationCompat.BigTextStyle().bigText(localNotification.getBody()));
+
     String sound = localNotification.getSound();
     if (sound != null) {
       Uri soundUri = Uri.parse(sound);
@@ -170,7 +174,13 @@ public class LocalNotificationManager {
       mBuilder.setGroup(group);
     }
 
-    mBuilder.setVisibility(Notification.VISIBILITY_PRIVATE);
+    // make sure scheduled time is shown instead of display time
+    if (localNotification.isScheduled()) {
+      mBuilder.setWhen(localNotification.getSchedule().getAt().getTime())
+        .setShowWhen(true);
+    }
+
+    mBuilder.setVisibility(NotificationCompat.VISIBILITY_PRIVATE);
     mBuilder.setOnlyAlertOnce(true);
 
     mBuilder.setSmallIcon(localNotification.getSmallIcon(context));
