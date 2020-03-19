@@ -1599,15 +1599,20 @@ export interface StatusBarPlugin extends Plugin {
   /**
    * Show the status bar
    */
-  show(): Promise<void>;
+  show(options?: StatusBarAnimationOptions): Promise<void>;
   /**
    *  Hide the status bar
    */
-  hide(): Promise<void>;
+  hide(options?: StatusBarAnimationOptions): Promise<void>;
   /**
    *  Get info about the current state of the status bar
    */
   getInfo(): Promise<StatusBarInfoResult>;
+  /**
+   *  Set whether or not the status bar should overlay the webview to allow usage of the space
+   *  around a device "notch"
+   */
+  setOverlaysWebView(options: StatusBarOverlaysWebviewOptions): Promise<void>;
 }
 
 export interface StatusBarStyleOptions {
@@ -1625,6 +1630,28 @@ export enum StatusBarStyle {
   Light = 'LIGHT'
 }
 
+export interface StatusBarAnimationOptions {
+  /**
+   * iOS only. The type of status bar animation used when showing or hiding.
+   */
+  animation: StatusBarAnimation;
+}
+
+export enum StatusBarAnimation {
+  /**
+   * No animation during show/hide.
+   */
+  None = 'NONE',
+  /**
+   * Slide animation during show/hide.
+   */
+  Slide = 'SLIDE',
+  /**
+   * Fade animation during show/hide.
+   */
+  Fade = 'FADE'
+}
+
 export interface StatusBarBackgroundColorOptions {
   color: string;
 }
@@ -1633,6 +1660,11 @@ export interface StatusBarInfoResult {
   visible: boolean;
   style: StatusBarStyle;
   color?: string;
+  overlays?: boolean;
+}
+
+export interface StatusBarOverlaysWebviewOptions {
+  overlay: boolean;
 }
 
 export interface StoragePlugin extends Plugin {
