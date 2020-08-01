@@ -1,8 +1,8 @@
 import { APP_ID, APP_NAME, run, makeAppDir, MappedFS } from './util';
 
-describe.each([false, true])('Add: iOS (monoRepoLike: %p)', (monoRepoLike) => {
-  let appDirObj;
-  let FS;
+describe.each([false, true])('Add: iOS (monoRepoLike: %p)', monoRepoLike => {
+  let appDirObj: any;
+  let FS: MappedFS;
 
   beforeAll(async () => {
     // These commands are slowww...
@@ -25,7 +25,9 @@ describe.each([false, true])('Add: iOS (monoRepoLike: %p)', (monoRepoLike) => {
 
   it('Should update Info.plist', async () => {
     const infoContent = await FS.read('ios/App/App/Info.plist');
-    const regex = new RegExp(`<key>CFBundleDisplayName<\/key>[^<]*<string>${APP_NAME}<\/string>`);
+    const regex = new RegExp(
+      `<key>CFBundleDisplayName<\/key>[^<]*<string>${APP_NAME}<\/string>`,
+    );
     expect(regex.test(infoContent)).toBe(true);
   });
 

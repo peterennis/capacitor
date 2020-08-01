@@ -3,15 +3,13 @@ import { WebPlugin } from './index';
 import {
   AccessibilityPlugin,
   AccessibilitySpeakOptions,
-  ScreenReaderEnabledResult
+  ScreenReaderEnabledResult,
 } from '../core-plugin-definitions';
 
-export class AccessibilityPluginWeb extends WebPlugin implements AccessibilityPlugin {
+export class AccessibilityPluginWeb extends WebPlugin
+  implements AccessibilityPlugin {
   constructor() {
-    super({
-      name: 'Accessibility',
-      platforms: ['web']
-    });
+    super({ name: 'Accessibility' });
   }
 
   isScreenReaderEnabled(): Promise<ScreenReaderEnabledResult> {
@@ -20,7 +18,9 @@ export class AccessibilityPluginWeb extends WebPlugin implements AccessibilityPl
 
   speak(options: AccessibilitySpeakOptions): Promise<void> {
     if (!('speechSynthesis' in window)) {
-      return Promise.reject('Browser does not support the Speech Synthesis API');
+      return Promise.reject(
+        'Browser does not support the Speech Synthesis API',
+      );
     }
 
     var utterance = new SpeechSynthesisUtterance(options.value);

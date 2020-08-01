@@ -4,7 +4,7 @@ tasks:
       issue_comment:
         types: [created]
     config:
-      label: needs-reply
+      label: 'needs reply'
       exclude-labeler: true
   - name: add-platform-labels
     on:
@@ -13,6 +13,8 @@ tasks:
   - name: add-contributors
     on:
       push:
-        branches: [master]
+        branches: [main]
     config:
-      base: master
+      base: main
+      commit-message: 'chore(readme): add new contributor'
+      exclude-pattern: '^(?!Ionitron).+?(?<!\\[bot\\])$'

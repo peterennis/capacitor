@@ -1,12 +1,21 @@
 {
-  "lerna": "2.4.0",
-  "gitVersionPrefix": "",
   "packages": [
     "./android/",
     "./ios/",
     "./cli/",
-    "./core/",
-    "./electron/"
+    "./core/"
   ],
-  "version": "2.2.0"
+  "command": {
+    "bootstrap": {
+      "hoist": true
+    },
+    "version": {
+      "allowBranch": "main",
+      "conventionalCommits": true,
+      "createRelease": "github",
+      "message": "Release %s",
+      "tagVersionPrefix": ""
+    }
+  },
+  "version": "3.0.0-alpha.0"
 }

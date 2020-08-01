@@ -1,10 +1,17 @@
 {
   "name": "@capacitor/ios",
-  "version": "2.2.0",
+  "version": "3.0.0-alpha.0",
   "description": "Capacitor: cross-platform mobile apps with the web",
   "homepage": "https://capacitor.ionicframework.com/",
   "author": "Ionic Team <hi@ionic.io> (https://ionicframework.com) ",
   "license": "MIT",
+  "scripts": {
+    "verify": "npm run xc:build:Capacitor && npm run xc:build:CapacitorCordova && npm run pod:lint:Capacitor && npm run pod:lint:CapacitorCordova",
+    "xc:build:Capacitor": "cd Capacitor && pod install && xcodebuild -workspace Capacitor.xcworkspace -scheme Capacitor && cd ..",
+    "xc:build:CapacitorCordova": "cd CapacitorCordova && xcodebuild && cd ..",
+    "pod:lint:Capacitor": "pod lib lint --allow-warnings Capacitor.podspec",
+    "pod:lint:CapacitorCordova": "pod lib lint --allow-warnings CapacitorCordova.podspec"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ionic-team/capacitor.git"
@@ -16,6 +23,6 @@
     "access": "public"
   },
   "peerDependencies": {
-    "@capacitor/core": "~2.2.0"
+    "@capacitor/core": "~2.3.0"
   }
 }

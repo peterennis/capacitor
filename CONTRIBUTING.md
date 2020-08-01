@@ -1,13 +1,13 @@
 # Contributing to Capacitor
 
-This guide attempts to make it easy for volunteer contributors and the core team to contribute to and publish Capacitor. Please let us know if there's something missing!
+This guide provides instructions for contributing to Capacitor through [issues & discussions](#issues--discussions) and [code](#developing-capacitor).
 
 ## Issues & Discussions
 
 The Capacitor repo uses GitHub [issues](https://github.com/ionic-team/capacitor/issues) and [discussions](https://github.com/ionic-team/capacitor/discussions) to track bugs and feature requests, as well as to provide a place for community questions, ideas, and discussions.
 
 * **When to use [issues](https://github.com/ionic-team/capacitor/issues)**:
-    * To report specific, reproducible bugs.
+    * To report specific, reproducible bugs (see [Creating a Code Reproduction](#creating-a-code-reproduction)).
     * To propose detailed feature requests.
 * **When to use [discussions](https://github.com/ionic-team/capacitor/discussions)**:
     * To ask for help.
@@ -30,17 +30,23 @@ To create a code reproduction:
 
 ## Developing Capacitor
 
+### Repositories
+
+* [Capacitor](https://github.com/ionic-team/capacitor) (this repo): Core Capacitor platforms, CLI, and APIs
+* [Capacitor Plugins](https://github.com/ionic-team/capacitor-plugins): Official Capacitor plugins
+* [Capacitor Community](https://github.com/capacitor-community/): GitHub org for Capacitor Community plugins and platforms
+* [Capacitor Site](https://github.com/ionic-team/capacitor-site): Capacitor website and online documentation
+* [Capacitor TestApp](https://github.com/ionic-team/capacitor-testapp): Test app used by the core team for developing Capacitor
+
 ### Design Philosophy
 
 Before working on Capacitor, it's important to understand the philosophy behind the project to avoid investing time in things that won't fit into the goals of the project.
 
 Please read [@maxlynch](http://twitter.com/maxlynch)'s essay [How Capacitor Works](https://tinyletter.com/ionic-max/letters/how-capacitor-works) for a deep dive into the project and its goals.
-1. Check out this repository.
-2. Read and follow [`example/README.md`](../example/README.md)
 
 ### Consult with the team
 
-For any large changes, make sure you've consulted with the team first. One way to do this would be to create a draft PR for discussion, or bringing up the discussion in the Capacitor slack.
+For any large changes, make sure you've consulted with the team first. You can [open a discussion](https://github.com/ionic-team/capacitor/discussions) to bring up your idea.
 
 ### About Third Party Libraries
 
@@ -50,9 +56,36 @@ On native, that means avoid adding any new Cocoapod or Gradle dependencies witho
 
 On web, this means do not add any third party libraries such as Firebase or Lodash. Strive for implementations that use pure Web APIs even if it means more work.
 
+### Local Setup
+
+1. Fork and clone the repo.
+1. Install the monorepo dependencies.
+
+    ```shell
+    npm install
+    ```
+
+1. Install SwiftLint if you're on macOS. Contributions to iOS code will be linted in CI if you don't have macOS.
+
+    ```shell
+    brew install swiftlint
+    ```
+
+1. Install package dependencies. [Lerna](https://github.com/lerna/lerna) can automatically install each package's dependencies.
+
+    ```shell
+    npx lerna bootstrap
+    ```
+
+### Branches
+
+* [`main`](https://github.com/ionic-team/capacitor/tree/main): Latest Capacitor development branch
+* [`2.x`](https://github.com/ionic-team/capacitor/tree/2.x): Capacitor 2 (bug and security fixes only)
+* [`1.x`](https://github.com/ionic-team/capacitor/tree/1.x): Capacitor 1 (not maintained)
+
 ### Directory Structure
 
-The `ionic-team/capacitor` repo is a monorepo containing all of the standard Capacitor components. The current directory structure looks like this:
+This monorepo contains core Capacitor components. The current directory structure looks like this:
 
 * `app-template`: The default app template used during `create`
 * `cli`: Capacitor CLI/Build scripts
@@ -61,17 +94,24 @@ The `ionic-team/capacitor` repo is a monorepo containing all of the standard Cap
 * `ios-template`: Default iOS App installed by the CLI
 * `android`: Capacitor Android Runtime
 * `android-template`: Default Android App installed by the CLI
-* `example`: Example project for development
 * `plugin-template`: The default plugin template when creating a new plugin
-* `scripts`: publish and task scripts
-* `site`: Website and documentation
 
 ## Publishing Capacitor
 
-Capacitor packages are published together with a fixed version using [Lerna](https://github.com/lerna/lerna).
+Capacitor packages are published using [Lerna](https://github.com/lerna/lerna) with fixed versioning.
 
-To publish Capacitor, run the following:
+During Capacitor 3 development, the following workflow is used to create dev releases:
 
-```bash
-npm run publish
-```
+1. Create the next development version. The following command will:
+    * Create a release commit with a generated changelog
+    * Create a git tag
+    * Push to the `main` branch
+    * Create a GitHub release
+
+    <br>
+
+    ```
+    npx lerna version prerelease
+    ```
+
+1. Wait for CI to publish the new tagged version.

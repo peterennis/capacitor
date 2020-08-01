@@ -4,7 +4,7 @@ import {
   DeviceBatteryInfo,
   DeviceInfo,
   DevicePlugin,
-  DeviceLanguageCodeResult
+  DeviceLanguageCodeResult,
 } from '../core-plugin-definitions';
 
 import { uuid4 } from '../util';
@@ -13,10 +13,7 @@ declare var navigator: any;
 
 export class DevicePluginWeb extends WebPlugin implements DevicePlugin {
   constructor() {
-    super({
-      name: 'Device',
-      platforms: ['web']
-    });
+    super({ name: 'Device' });
   }
 
   async getInfo(): Promise<DeviceInfo> {
@@ -25,14 +22,16 @@ export class DevicePluginWeb extends WebPlugin implements DevicePlugin {
 
     return Promise.resolve({
       model: uaFields.model,
-      platform: <'web'> 'web',
+      platform: <'web'>'web',
       appVersion: '',
       appBuild: '',
+      appId: '',
+      appName: '',
       operatingSystem: uaFields.operatingSystem,
       osVersion: uaFields.osVersion,
       manufacturer: navigator.vendor,
       isVirtual: false,
-      uuid: this.getUid()
+      uuid: this.getUid(),
     });
   }
 
@@ -47,13 +46,13 @@ export class DevicePluginWeb extends WebPlugin implements DevicePlugin {
 
     return Promise.resolve({
       batteryLevel: battery.level,
-      isCharging: battery.charging
+      isCharging: battery.charging,
     });
   }
 
   async getLanguageCode(): Promise<DeviceLanguageCodeResult> {
     return {
-      value: navigator.language
+      value: navigator.language,
     };
   }
 
@@ -66,7 +65,11 @@ export class DevicePluginWeb extends WebPlugin implements DevicePlugin {
     }
     const fields = _ua.substring(start, end);
     if (_ua.indexOf('Android') !== -1) {
-      uaFields.model = fields.replace('; wv', '').split('; ').pop().split(' Build')[0];
+      uaFields.model = fields
+        .replace('; wv', '')
+        .split('; ')
+        .pop()
+        .split(' Build')[0];
       uaFields.osVersion = fields.split('; ')[1];
     } else {
       uaFields.model = fields.split('; ')[0];
@@ -76,8 +79,15 @@ export class DevicePluginWeb extends WebPlugin implements DevicePlugin {
         if (_ua.indexOf('Windows') !== -1) {
           uaFields.osVersion = fields;
         } else {
-          let lastParts = fields.split('; ').pop().replace(' like Mac OS X', '').split(' ');
-          uaFields.osVersion = lastParts[lastParts.length - 1].replace(/_/g, '.');
+          let lastParts = fields
+            .split('; ')
+            .pop()
+            .replace(' like Mac OS X', '')
+            .split(' ');
+          uaFields.osVersion = lastParts[lastParts.length - 1].replace(
+            /_/g,
+            '.',
+          );
         }
       }
     }
