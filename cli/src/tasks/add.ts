@@ -1,3 +1,4 @@
+import c from '../colors';
 import { Config } from '../config';
 import { OS } from '../definitions';
 import { addAndroid, addAndroidChecks } from '../android/add';
@@ -9,10 +10,7 @@ import {
   checkAppConfig,
   checkPackage,
   checkWebDir,
-  log,
-  logError,
   logFatal,
-  logInfo,
   resolvePlatform,
   runPlatformHook,
   runTask,
@@ -20,8 +18,9 @@ import {
 } from '../common';
 import { sync } from './sync';
 
-import chalk from 'chalk';
 import { resolve } from 'path';
+import prompts from 'prompts';
+import { logger } from '../log';
 
 export async function addCommand(config: Config, selectedPlatformName: string) {
   if (selectedPlatformName && !config.isValidPlatform(selectedPlatformName)) {
@@ -29,15 +28,15 @@ export async function addCommand(config: Config, selectedPlatformName: string) {
     if (platformDir) {
       await runPlatformHook(platformDir, 'capacitor:add');
     } else {
-      logError(`platform ${selectedPlatformName} not found`);
+      let msg = `Platform ${c.input(selectedPlatformName)} not found.`;
 
       if (config.knownCommunityPlatforms.includes(selectedPlatformName)) {
-        log(
-          `Try installing ${chalk.bold(
-            `@capacitor-community/${selectedPlatformName}`,
-          )} and adding the platform again.`,
-        );
+        msg += `\nTry installing ${c.strong(
+          `@capacitor-community/${selectedPlatformName}`,
+        )} and adding the platform again.`;
       }
+
+      logger.error(msg);
     }
   } else {
     const platformName = await config.askPlatform(
@@ -52,9 +51,13 @@ export async function addCommand(config: Config, selectedPlatformName: string) {
 
     const existingPlatformDir = config.platformDirExists(platformName);
     if (existingPlatformDir) {
-      logFatal(`"${platformName}" platform already exists.
-      To add a new "${platformName}" platform, please remove "${existingPlatformDir}" and run this command again.
-      WARNING! your native IDE project will be completely removed.`);
+      logFatal(
+        `${c.input(platformName)} platform already exists.\n` +
+          `To re-add this platform, first remove ${existingPlatformDir}, then run this command again.\n` +
+          `${c.strong(
+            'WARNING',
+          )}: Your native project will be completely removed.`,
+      );
     }
 
     try {
@@ -63,7 +66,6 @@ export async function addCommand(config: Config, selectedPlatformName: string) {
         checkAppConfig,
         ...addChecks(config, platformName),
       ]);
-      await generateCapacitorConfig(config);
       await check(config, [checkWebDir]);
       await doAdd(config, platformName);
       await editPlatforms(config, platformName);
@@ -76,44 +78,16 @@ export async function addCommand(config: Config, selectedPlatformName: string) {
         platformName === config.ios.name ||
         platformName === config.android.name
       ) {
-        log(
-          chalk`\nNow you can run {green {bold npx cap open ${platformName}}} to launch ${
+        logger.info(
+          `Run ${c.input(`npx cap open ${platformName}`)} to launch ${
             platformName === config.ios.name ? 'Xcode' : 'Android Studio'
           }`,
         );
       }
     } catch (e) {
-      logFatal(e);
+      logFatal(e.stack ?? e);
     }
   }
-}
-
-export async function generateCapacitorConfig(config: Config) {
-  if (config.foundExternalConfig()) {
-    return;
-  }
-
-  const inquirer = await import('inquirer');
-  const answers = await inquirer.prompt([
-    {
-      type: 'input',
-      name: 'webDir',
-      message:
-        'What directory are your web assets in? (index.html, built JavaScript, etc.):',
-      default: 'www',
-    },
-  ]);
-  const webDir = answers.webDir;
-  await runTask(`Creating ${config.app.extConfigName}`, () => {
-    return writePrettyJSON(config.app.extConfigFilePath, {
-      webDir: webDir,
-    });
-  });
-  logInfo(
-    `💡 You can change the web directory anytime by modifing ${config.app.extConfigName}`,
-  );
-  config.app.webDir = webDir;
-  config.app.webDirAbs = resolve(config.app.rootDir, webDir);
 }
 
 export function addChecks(config: Config, platformName: string) {
@@ -129,7 +103,7 @@ export function addChecks(config: Config, platformName: string) {
 }
 
 export async function doAdd(config: Config, platformName: string) {
-  await runTask(chalk`{green {bold add}}`, async () => {
+  await runTask(c.success(c.strong('add')), async () => {
     if (platformName === config.ios.name) {
       await addIOS(config);
     } else if (platformName === config.android.name) {
@@ -155,12 +129,11 @@ function shouldSync(config: Config, platformName: string) {
 }
 
 function webWarning() {
-  logError(`Not adding platform ${chalk.bold('web')}`);
-  log(`\nIn Capacitor, the 'web' platform is just your web app!`);
-  log(
-    `For example, if you have a React or Angular project, the 'web' platform is that project.`,
-  );
-  log(
-    `To add Capacitor functionality to your web app, follow the Web Getting Started Guide: https://capacitorjs.com/docs/web`,
+  logger.error(
+    `Not adding platform ${c.strong('web')}.\n` +
+      `In Capacitor, the web platform is just your web app! For example, if you have a React or Angular project, the web platform is that project.\n` +
+      `To add Capacitor functionality to your web app, follow the Web Getting Started Guide: ${c.strong(
+        'https://capacitorjs.com/docs/web',
+      )}`,
   );
 }

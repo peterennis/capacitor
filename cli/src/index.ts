@@ -1,5 +1,4 @@
 import program from 'commander';
-import chalk from 'chalk';
 
 import { createCommand } from './tasks/create';
 import { initCommand } from './tasks/init';
@@ -10,14 +9,16 @@ import { openCommand } from './tasks/open';
 import { serveCommand } from './tasks/serve';
 import { syncCommand } from './tasks/sync';
 import { Config } from './config';
+import c from './colors';
 import { addCommand } from './tasks/add';
 import { newPluginCommand } from './tasks/new-plugin';
 import { doctorCommand } from './tasks/doctor';
 import { emoji as _e } from './util/emoji';
 import { logFatal } from './common';
+import { output } from './log';
 
 process.on('unhandledRejection', error => {
-  console.error(chalk.red('[fatal]'), error);
+  console.error(c.failure('[fatal]'), error);
 });
 
 export function run(process: NodeJS.Process, cliBinDir: string) {
@@ -26,19 +27,18 @@ export function run(process: NodeJS.Process, cliBinDir: string) {
   program.version(config.cli.package.version);
 
   program
-    .command('create [directory] [name] [id]')
+    .command('create [directory] [name] [id]', { hidden: true })
     .description('Creates a new Capacitor project')
-    .action((directory, name, id) => {
-      return createCommand(config, directory, name, id);
+    .action(() => {
+      return createCommand(config);
     });
 
   program
     .command('init [appName] [appId]')
-    .description('Initializes a new Capacitor project in the current directory')
+    .description('create a capacitor.config.json file')
     .option(
-      '--web-dir [value]',
+      '--web-dir <value>',
       'Optional: Directory of your projects built web assets',
-      config.app.webDir ? config.app.webDir : 'www',
     )
     .action((appName, appId, { webDir }) => {
       return initCommand(config, appName, appId, webDir);
@@ -111,7 +111,7 @@ export function run(process: NodeJS.Process, cliBinDir: string) {
     });
 
   program
-    .command('plugin:generate')
+    .command('plugin:generate', { hidden: true })
     .description('start a new Capacitor plugin')
     .action(() => {
       return newPluginCommand(config);
@@ -119,14 +119,14 @@ export function run(process: NodeJS.Process, cliBinDir: string) {
 
   program.arguments('[command]').action(cmd => {
     if (typeof cmd === 'undefined') {
-      console.log(
-        `\n  ${_e('⚡️', '--')}  ${chalk.bold(
+      output.write(
+        `\n  ${_e('⚡️', '--')}  ${c.strong(
           'Capacitor - Cross-Platform apps with JavaScript and the Web',
-        )}  ${_e('⚡️', '--')}\n`,
+        )}  ${_e('⚡️', '--')}\n\n`,
       );
       program.outputHelp();
     } else {
-      logFatal(`Unknown command: ${cmd}`);
+      logFatal(`Unknown command: ${c.input(cmd)}`);
     }
   });
 

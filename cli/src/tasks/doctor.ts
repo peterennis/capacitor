@@ -1,17 +1,17 @@
+import c from '../colors';
 import { Config } from '../config';
-import { log, readJSON, resolveNode, getCommandOutput } from '../common';
+import { readJSON, resolveNode, getCommandOutput } from '../common';
 import { doctorAndroid } from '../android/doctor';
 import { doctorIOS } from '../ios/doctor';
+import { output } from '../log';
 import { emoji as _e } from '../util/emoji';
-
-import chalk from 'chalk';
 
 export async function doctorCommand(
   config: Config,
   selectedPlatform: string,
 ): Promise<void> {
-  log(
-    `${_e('💊', '')}   ${chalk.bold('Capacitor Doctor')}  ${_e('💊', '')} \n`,
+  output.write(
+    `${_e('💊', '')}   ${c.strong('Capacitor Doctor')}  ${_e('💊', '')} \n\n`,
   );
 
   await doctorCore(config);
@@ -37,17 +37,18 @@ export async function doctorCore(config: Config) {
     getCommandOutput(`npm info @capacitor/ios version`),
   ]);
 
-  log(`${chalk.bold.blue('Latest Dependencies:')}\n`);
-  log(`  ${chalk.bold('@capacitor/cli:')}`, cliVersion ?? 'unknown');
-  log(`  ${chalk.bold('@capacitor/core:')}`, coreVersion ?? 'unknown');
-  log(`  ${chalk.bold('@capacitor/android:')}`, androidVersion ?? 'unknown');
-  log(`  ${chalk.bold('@capacitor/ios:')}`, iosVersion ?? 'unknown');
-
-  log(`${chalk.bold.blue('Installed Dependencies:')}\n`);
+  output.write(
+    `${c.strong('Latest Dependencies:')}\n\n` +
+      `  @capacitor/cli: ${c.weak(cliVersion ?? 'unknown')}\n` +
+      `  @capacitor/core: ${c.weak(coreVersion ?? 'unknown')}\n` +
+      `  @capacitor/android: ${c.weak(androidVersion ?? 'unknown')}\n` +
+      `  @capacitor/ios: ${c.weak(iosVersion ?? 'unknown')}\n\n` +
+      `${c.strong('Installed Dependencies:')}\n\n`,
+  );
 
   await printInstalledPackages(config);
 
-  log('');
+  output.write('\n');
 }
 
 async function printInstalledPackages(config: Config) {
@@ -73,7 +74,7 @@ async function printPackageVersion(
   if (packagePath) {
     version = (await readJSON(packagePath)).version;
   }
-  log(`  ${chalk.bold(packageName)}`, version || 'not installed');
+  output.write(`  ${packageName}: ${c.weak(version || 'not installed')}\n`);
 }
 
 export async function doctor(config: Config, platformName: string) {

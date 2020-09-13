@@ -18,24 +18,22 @@ import {
   writeFileAsync,
 } from './util/fs';
 import { basename, extname, join, resolve } from 'path';
+import c from './colors';
 import {
   buildXmlElement,
-  log,
-  logError,
   logFatal,
-  logInfo,
-  logWarn,
+  logPrompt,
   parseXML,
   readXML,
   resolveNode,
   writeXML,
 } from './common';
+import { logger } from './log';
 import { copy as fsCopy, existsSync } from 'fs-extra';
 import { getAndroidPlugins } from './android/common';
 import { getIOSPlugins } from './ios/common';
 import { copy } from './tasks/copy';
-import inquirer from 'inquirer';
-import chalk from 'chalk';
+import prompts from 'prompts';
 
 const plist = require('plist');
 
@@ -181,10 +179,9 @@ export async function copyCordovaJS(config: Config, platform: string) {
   const cordovaPath = resolveNode(config, '@capacitor/core', 'cordova.js');
   if (!cordovaPath) {
     logFatal(
-      `Unable to find node_modules/@capacitor/core/cordova.js. Are you sure`,
-      '@capacitor/core is installed? This file is currently required for Capacitor to function.',
+      `Unable to find node_modules/@capacitor/core/cordova.js.\n` +
+        `Are you sure ${c.strong('@capacitor/core')} is installed?`,
     );
-    return;
   }
 
   return fsCopy(cordovaPath, join(getWebDir(config, platform), 'cordova.js'));
@@ -351,8 +348,10 @@ async function logiOSPlist(configElement: any, config: Config, plugin: Plugin) {
   if (!dict.key.includes(configElement.$.parent)) {
     let xml = buildConfigFileXml(configElement);
     xml = `<key>${configElement.$.parent}</key>${getConfigFileTagContent(xml)}`;
-    logWarn(
-      `Plugin ${plugin.id} requires you to add \n  ${xml} to your Info.plist to work`,
+    logger.warn(
+      `Configuration required for ${c.strong(plugin.id)}.\n` +
+        `Add the following to Info.plist:\n` +
+        xml,
     );
   } else if (configElement.array || configElement.dict) {
     if (
@@ -367,12 +366,12 @@ async function logiOSPlist(configElement: any, config: Config, plugin: Plugin) {
         }
       });
       if (xml.length > 0) {
-        logWarn(
-          `Plugin ${
-            plugin.id
-          } requires you to add \n${xml} in the existing ${chalk.bold(
-            configElement.$.parent,
-          )} array of your Info.plist to work`,
+        logger.warn(
+          `Configuration required for ${c.strong(plugin.id)}.\n` +
+            `Add the following in the existing ${c.strong(
+              configElement.$.parent,
+            )} array of your Info.plist:\n` +
+            xml,
         );
       }
     } else {
@@ -385,12 +384,12 @@ function logPossibleMissingItem(configElement: any, plugin: Plugin) {
   let xml = buildConfigFileXml(configElement);
   xml = getConfigFileTagContent(xml);
   xml = removeOuterTags(xml);
-  logWarn(
-    `Plugin ${
-      plugin.id
-    } might require you to add ${xml} in the existing ${chalk.bold(
-      configElement.$.parent,
-    )} entry of your Info.plist to work`,
+  logger.warn(
+    `Configuration might be missing for ${c.strong(plugin.id)}.\n` +
+      `Add the following to the existing ${c.strong(
+        configElement.$.parent,
+      )} entry of Info.plist:\n` +
+      xml,
   );
 }
 
@@ -452,9 +451,7 @@ export async function checkPluginDependencies(
                 version = dep.$.commit;
               }
               const deps = pluginDeps.get(p.id) || [];
-              deps.push(
-                `${plugin}${version ? chalk.dim(` (${version})`) : ''}`,
-              );
+              deps.push(`${plugin}${version ? c.weak(` (${version})`) : ''}`);
               pluginDeps.set(p.id, deps);
             }
           }),
@@ -464,19 +461,18 @@ export async function checkPluginDependencies(
   );
 
   if (pluginDeps.size > 0) {
-    log();
     let msg =
-      `${chalk.red.bold('Plugins are missing dependencies.')}\n\n` +
-      `  Cordova plugin dependencies must be installed in your\n` +
-      `  project (e.g. w/ ${chalk.bold('npm install')}).\n`;
+      `${c.failure(c.strong('Plugins are missing dependencies.'))}\n` +
+      `Cordova plugin dependencies must be installed in your project (e.g. w/ ${c.input(
+        'npm install',
+      )}).\n`;
     for (const [plugin, deps] of pluginDeps.entries()) {
       msg +=
-        `\n  ${chalk.bold(plugin)} is missing dependencies:\n` +
+        `\n  ${c.strong(plugin)} is missing dependencies:\n` +
         deps.map(d => `    - ${d}`).join('\n');
     }
 
-    logWarn(msg);
-    log();
+    logger.warn(`${msg}\n`);
   }
 }
 
@@ -497,11 +493,7 @@ export function getIncompatibleCordovaPlugins(platform: string) {
     'cordova-support-google-services',
   ];
   if (platform === 'ios') {
-    pluginList.push(
-      'cordova-plugin-googlemaps',
-      'cordova-plugin-statusbar',
-      '@ionic-enterprise/statusbar',
-    );
+    pluginList.push('cordova-plugin-statusbar', '@ionic-enterprise/statusbar');
   }
   if (platform === 'android') {
     pluginList.push('cordova-plugin-compat');
@@ -521,24 +513,52 @@ export async function getCordovaPreferences(config: Config) {
       });
     }
   }
-  if (
-    config.app.extConfig &&
-    config.app.extConfig.cordova &&
-    config.app.extConfig.cordova.preferences &&
-    cordova.preferences
-  ) {
-    const answer = await inquirer.prompt({
-      type: 'confirm',
-      name: 'confirm',
-      message:
-        'capacitor.config.json already contains cordova preferences. Overwrite with values from config.xml?',
-    });
-    if (!answer.confirm) {
-      cordova = config.app.extConfig.cordova;
+  if (cordova.preferences && Object.keys(cordova.preferences).length > 0) {
+    const answers = await logPrompt(
+      `${c.strong(
+        `Cordova preferences can be automatically ported to ${c.strong(
+          'capacitor.config.json',
+        )}.`,
+      )}\n` +
+        `Keep in mind: Not all values can be automatically migrated from ${c.strong(
+          'config.xml',
+        )}. There may be more work to do.\n` +
+        `More info: ${c.strong(
+          'https://capacitorjs.com/docs/cordova/migrating-from-cordova-to-capacitor',
+        )}`,
+      {
+        type: 'confirm',
+        name: 'confirm',
+        message: `Migrate Cordova preferences from config.xml?`,
+        initial: true,
+      },
+    );
+    if (answers.confirm) {
+      if (
+        config.app.extConfig &&
+        config.app.extConfig.cordova &&
+        config.app.extConfig.cordova.preferences
+      ) {
+        const answers = await prompts(
+          [
+            {
+              type: 'confirm',
+              name: 'confirm',
+              message:
+                'capacitor.config.json already contains Cordova preferences. Overwrite?',
+            },
+          ],
+          { onCancel: () => process.exit(1) },
+        );
+        if (!answers.confirm) {
+          cordova = config.app.extConfig?.cordova;
+        }
+      }
+    } else {
+      cordova = config.app.extConfig?.cordova;
     }
-  }
-  if (config.app.extConfig && !cordova.preferences) {
-    cordova = config.app.extConfig.cordova;
+  } else {
+    cordova = config.app.extConfig?.cordova;
   }
   return cordova;
 }
@@ -597,8 +617,10 @@ export async function writeCordovaAndroidManifest(
                   applicationXMLEntries.push(xmlElement);
                 }
               } else {
-                logInfo(
-                  `plugin ${p.id} requires to add \n  ${xmlElement} to your AndroidManifest.xml to work`,
+                logger.warn(
+                  `Configuration required for ${c.strong(p.id)}.\n` +
+                    `Add the following to AndroidManifest.xml:\n` +
+                    xmlElement,
                 );
               }
             } else {
