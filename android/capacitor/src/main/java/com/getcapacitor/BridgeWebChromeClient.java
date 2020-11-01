@@ -20,8 +20,8 @@ import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import android.widget.EditText;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.FileProvider;
+import com.getcapacitor.util.PermissionHelper;
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -38,12 +38,14 @@ import org.json.JSONException;
  */
 public class BridgeWebChromeClient extends WebChromeClient {
 
-    private Bridge bridge;
     static final int FILE_CHOOSER = PluginRequestCodes.FILE_CHOOSER;
     static final int FILE_CHOOSER_IMAGE_CAPTURE = PluginRequestCodes.FILE_CHOOSER_IMAGE_CAPTURE;
     static final int FILE_CHOOSER_VIDEO_CAPTURE = PluginRequestCodes.FILE_CHOOSER_VIDEO_CAPTURE;
     static final int FILE_CHOOSER_CAMERA_PERMISSION = PluginRequestCodes.FILE_CHOOSER_CAMERA_PERMISSION;
     static final int GET_USER_MEDIA_PERMISSIONS = PluginRequestCodes.GET_USER_MEDIA_PERMISSIONS;
+    static final int GEOLOCATION_REQUEST_PERMISSIONS = PluginRequestCodes.GEOLOCATION_REQUEST_PERMISSIONS;
+
+    private Bridge bridge;
 
     public BridgeWebChromeClient(Bridge bridge) {
         this.bridge = bridge;
@@ -249,7 +251,7 @@ public class BridgeWebChromeClient extends WebChromeClient {
     }
 
     /**
-     * Handle the browser geolocation prompt
+     * Handle the browser geolocation permission prompt
      * @param origin
      * @param callback
      */
@@ -258,14 +260,34 @@ public class BridgeWebChromeClient extends WebChromeClient {
         super.onGeolocationPermissionsShowPrompt(origin, callback);
         Logger.debug("onGeolocationPermissionsShowPrompt: DOING IT HERE FOR ORIGIN: " + origin);
 
-        // Set that we want geolocation perms for this origin
-        callback.invoke(origin, true, false);
+        final String[] geoPermissions = { Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION };
 
-        Plugin geo = bridge.getPlugin("Geolocation").getInstance();
-        if (!geo.hasRequiredPermissions()) {
-            geo.pluginRequestAllPermissions();
+        if (!PermissionHelper.hasPermissions(bridge.getContext(), geoPermissions)) {
+            this.bridge.cordovaInterface.requestPermissions(
+                    new CordovaPlugin() {
+                        @Override
+                        public void onRequestPermissionResult(int requestCode, String[] permissions, int[] grantResults)
+                            throws JSONException {
+                            if (GEOLOCATION_REQUEST_PERMISSIONS == requestCode) {
+                                List<String> list = Arrays.asList(permissions);
+
+                                if (list.contains(geoPermissions[0]) || list.contains(geoPermissions[1])) {
+                                    if (grantResults.length >= 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                                        callback.invoke(origin, true, false);
+                                    } else {
+                                        callback.invoke(origin, false, false);
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    GEOLOCATION_REQUEST_PERMISSIONS,
+                    geoPermissions
+                );
         } else {
-            Logger.debug("onGeolocationPermissionsShowPrompt: has required permis");
+            // permission is already granted
+            callback.invoke(origin, true, false);
+            Logger.debug("onGeolocationPermissionsShowPrompt: has required permission");
         }
     }
 
@@ -310,9 +332,11 @@ public class BridgeWebChromeClient extends WebChromeClient {
     }
 
     private boolean isMediaCaptureSupported() {
-        Plugin camera = bridge.getPlugin("Camera").getInstance();
-        boolean isSupported = camera.hasPermission(Manifest.permission.CAMERA) || !camera.hasDefinedPermission(Manifest.permission.CAMERA);
-        return isSupported;
+        String[] permissions = { Manifest.permission.CAMERA };
+        return (
+            PermissionHelper.hasPermissions(bridge.getContext(), permissions) ||
+            !PermissionHelper.hasDefinedPermission(bridge.getContext(), Manifest.permission.CAMERA)
+        );
     }
 
     private void showMediaCaptureOrFilePicker(ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams, boolean isVideo) {

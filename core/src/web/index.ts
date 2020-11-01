@@ -1,7 +1,5 @@
-import type {
-  PluginListenerHandle,
-  PermissionsRequestResult,
-} from '../definitions';
+import type { CapacitorException, PluginListenerHandle } from '../definitions';
+import { ExceptionCode } from '../definitions';
 import { Capacitor } from '../global';
 
 export type ListenerCallback = (err: any, ...args: any[]) => void;
@@ -34,6 +32,14 @@ export class WebPlugin {
   windowListeners: { [eventName: string]: WindowListenerHandle } = {};
 
   constructor(public config: WebPluginConfig) {}
+
+  protected unimplemented(msg = 'not implemented'): CapacitorException {
+    return new Capacitor.Exception(msg, ExceptionCode.Unimplemented);
+  }
+
+  protected unavailable(msg = 'not available'): CapacitorException {
+    return new Capacitor.Exception(msg, ExceptionCode.Unavailable);
+  }
 
   private addWindowListener(handle: WindowListenerHandle): void {
     window.addEventListener(handle.windowEventName, handle.handler);
@@ -124,18 +130,6 @@ export class WebPlugin {
         this.notifyListeners(pluginEventName, event);
       },
     };
-  }
-
-  requestPermissions(): Promise<PermissionsRequestResult> {
-    if (Capacitor.isNative) {
-      return Capacitor.nativePromise(
-        this.config.name,
-        'requestPermissions',
-        {},
-      );
-    } else {
-      return Promise.resolve({ results: [] });
-    }
   }
 
   load(): void {
