@@ -1,11 +1,9 @@
-import { copy as fsCopy, pathExists, remove } from '@ionic/utils-fs';
-import { basename, join, relative, resolve } from 'path';
+import { copy as fsCopy, remove, writeJSON } from '@ionic/utils-fs';
+import { basename, join, relative } from 'path';
 
 import c from '../colors';
 import {
   checkWebDir,
-  logFatal,
-  resolveNode,
   resolvePlatform,
   runPlatformHook,
   runTask,
@@ -18,7 +16,8 @@ import {
   writeCordovaAndroidManifest,
 } from '../cordova';
 import type { Config } from '../definitions';
-import { logger } from '../log';
+import { logger, logFatal } from '../log';
+import { resolveNode } from '../util/node';
 import { allSerial } from '../util/promise';
 import { copyWeb } from '../web/copy';
 
@@ -65,23 +64,13 @@ export async function copy(
     if (platformName === config.ios.name) {
       await copyWebDir(config, config.ios.webDirAbs);
       await copyNativeBridge(config.app.rootDir, config.ios.webDirAbs);
-      await copyCapacitorConfig(
-        config,
-        join(
-          config.ios.platformDirAbs,
-          config.ios.nativeProjectName,
-          config.ios.nativeProjectName,
-        ),
-      );
+      await copyCapacitorConfig(config, config.ios.nativeTargetDirAbs);
       const cordovaPlugins = await getCordovaPlugins(config, platformName);
       await handleCordovaPluginsJS(cordovaPlugins, config, platformName);
     } else if (platformName === config.android.name) {
       await copyWebDir(config, config.android.webDirAbs);
       await copyNativeBridge(config.app.rootDir, config.android.webDirAbs);
-      await copyCapacitorConfig(
-        config,
-        join(config.android.platformDirAbs, 'app/src/main/assets'),
-      );
+      await copyCapacitorConfig(config, config.android.assetsDirAbs);
       const cordovaPlugins = await getCordovaPlugins(config, platformName);
       await handleCordovaPluginsJS(cordovaPlugins, config, platformName);
       await writeCordovaAndroidManifest(cordovaPlugins, config, platformName);
@@ -117,15 +106,15 @@ async function copyNativeBridge(rootDir: string, nativeAbsDir: string) {
 
 async function copyCapacitorConfig(config: Config, nativeAbsDir: string) {
   const nativeRelDir = relative(config.app.rootDir, nativeAbsDir);
-  const configPath = resolve(config.app.extConfigFilePath);
-  if (!(await pathExists(configPath))) {
-    return;
-  }
+  const nativeConfigFile = 'capacitor.config.json';
+  const nativeConfigFilePath = join(nativeAbsDir, nativeConfigFile);
 
   await runTask(
-    `Copying ${c.strong('capacitor.config.json')} to ${nativeRelDir}`,
+    `Creating ${c.strong(nativeConfigFile)} in ${nativeRelDir}`,
     async () => {
-      return fsCopy(configPath, join(nativeAbsDir, 'capacitor.config.json'));
+      await writeJSON(nativeConfigFilePath, config.app.extConfig, {
+        spaces: '\t',
+      });
     },
   );
 }
