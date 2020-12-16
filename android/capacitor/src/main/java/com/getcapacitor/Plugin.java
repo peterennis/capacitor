@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Bundle;
 import androidx.appcompat.app.AppCompatActivity;
@@ -85,7 +86,7 @@ public class Plugin {
      * @return the Activity for the current app
      */
     public AppCompatActivity getActivity() {
-        return (AppCompatActivity) this.bridge.getActivity();
+        return this.bridge.getActivity();
     }
 
     /**
@@ -167,14 +168,29 @@ public class Plugin {
         return this.savedLastCall;
     }
 
+    /**
+     * Get the config options for this plugin.
+     *
+     * @return a config object representing the plugin config options, or an empty config
+     * if none exists
+     */
+    public PluginConfig getConfig() {
+        return bridge.getConfig().getPluginConfiguration(handle.getId());
+    }
+
+    /**
+     * Get the value for a key on the config for this plugin.
+     * @deprecated use {@link #getConfig()} and access config values using the methods available
+     * depending on the type.
+     *
+     * @param key the key for the config value
+     * @return some object containing the value from the config
+     */
+    @Deprecated
     public Object getConfigValue(String key) {
         try {
-            JSONObject plugins = bridge.getConfig().getObject("plugins");
-            if (plugins == null) {
-                return null;
-            }
-            JSONObject pluginConfig = plugins.getJSONObject(getPluginHandle().getId());
-            return pluginConfig.get(key);
+            PluginConfig pluginConfig = getConfig();
+            return pluginConfig.getConfigJSON().get(key);
         } catch (JSONException ex) {
             return null;
         }
@@ -428,7 +444,7 @@ public class Plugin {
         if (listeners == null) {
             return false;
         }
-        return listeners.size() > 0;
+        return !listeners.isEmpty();
     }
 
     /**
@@ -493,7 +509,7 @@ public class Plugin {
      */
     @PluginMethod
     public void checkPermissions(PluginCall pluginCall) {
-        JSObject permissionsResult = bridge.getPermissionStates(this);
+        JSObject permissionsResult = getPermissionStates();
 
         if (permissionsResult.length() == 0) {
             // if no permissions are defined on the plugin, resolve undefined
@@ -673,10 +689,28 @@ public class Plugin {
     protected void handleOnActivityResult(PluginCall lastPluginCall, int requestCode, int resultCode, Intent data) {}
 
     /**
+     * Handle activity result, should be overridden by each plugin
+     * @deprecated use {@link #handleOnActivityResult(PluginCall, int, int, Intent)} in
+     * conjunction with @CapacitorPlugin
+     *
+     * @param requestCode
+     * @param resultCode
+     * @param data
+     */
+    @Deprecated
+    protected void handleOnActivityResult(int requestCode, int resultCode, Intent data) {}
+
+    /**
      * Handle onNewIntent
      * @param intent
      */
     protected void handleOnNewIntent(Intent intent) {}
+
+    /**
+     * Handle onConfigurationChanged
+     * @param newConfig
+     */
+    protected void handleOnConfigurationChanged(Configuration newConfig) {}
 
     /**
      * Handle onStart

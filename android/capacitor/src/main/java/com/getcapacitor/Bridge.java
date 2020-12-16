@@ -8,6 +8,7 @@ import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
@@ -16,12 +17,16 @@ import android.os.HandlerThread;
 import android.webkit.ValueCallback;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import com.getcapacitor.android.R;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
-import com.getcapacitor.plugin.SplashScreen;
+import com.getcapacitor.cordova.MockCordovaInterfaceImpl;
+import com.getcapacitor.cordova.MockCordovaWebViewImpl;
 import com.getcapacitor.util.HostMask;
 import com.getcapacitor.util.PermissionHelper;
+import com.getcapacitor.util.WebColor;
 import java.io.File;
 import java.net.SocketTimeoutException;
 import java.net.URL;
@@ -31,11 +36,12 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import org.apache.cordova.CordovaInterfaceImpl;
+import org.apache.cordova.ConfigXmlParser;
 import org.apache.cordova.CordovaPreferences;
+import org.apache.cordova.CordovaWebView;
+import org.apache.cordova.PluginEntry;
 import org.apache.cordova.PluginManager;
 import org.json.JSONException;
-import org.json.JSONObject;
 
 /**
  * The Bridge class is the main engine of Capacitor. It manages
@@ -74,7 +80,7 @@ public class Bridge {
     private CapConfig config;
 
     // A reference to the main activity for the app
-    private final Activity context;
+    private final AppCompatActivity context;
     private WebViewLocalServer localServer;
     private String localUrl;
     private String appUrl;
@@ -82,7 +88,8 @@ public class Bridge {
     private HostMask appAllowNavigationMask;
     // A reference to the main WebView for the app
     private final WebView webView;
-    public final CordovaInterfaceImpl cordovaInterface;
+    public final MockCordovaInterfaceImpl cordovaInterface;
+    private CordovaWebView cordovaWebView;
     private CordovaPreferences preferences;
     private BridgeWebViewClient webViewClient;
     private App app;
@@ -119,15 +126,17 @@ public class Bridge {
      * app, and a reference to the {@link WebView} our app will use.
      * @param context
      * @param webView
+     * @deprecated Use {@link Bridge.Builder} to create Bridge instances
      */
+    @Deprecated
     public Bridge(
-        Activity context,
+        AppCompatActivity context,
         WebView webView,
         List<Class<? extends Plugin>> initialPlugins,
-        CordovaInterfaceImpl cordovaInterface,
+        MockCordovaInterfaceImpl cordovaInterface,
         PluginManager pluginManager,
         CordovaPreferences preferences,
-        JSONObject config
+        CapConfig config
     ) {
         this.app = new App();
         this.context = context;
@@ -141,13 +150,8 @@ public class Bridge {
         handlerThread.start();
         taskHandler = new Handler(handlerThread.getLooper());
 
-        this.config = new CapConfig(getActivity().getAssets(), config);
+        this.config = config != null ? config : CapConfig.fromFile(getActivity());
         Logger.init(this.config);
-
-        // Display splash screen if configured
-        if (context instanceof BridgeActivity) {
-            Splash.showOnLaunch((BridgeActivity) context, this.config);
-        }
 
         // Initialize web view and message handler for it
         this.initWebView();
@@ -155,8 +159,7 @@ public class Bridge {
 
         // Grab any intent info that our app was launched with
         Intent intent = context.getIntent();
-        Uri intentData = intent.getData();
-        this.intentUri = intentData;
+        this.intentUri = intent.getData();
 
         // Register our core plugins
         this.registerAllPlugins();
@@ -169,8 +172,8 @@ public class Bridge {
     }
 
     private void loadWebView() {
-        appUrlConfig = this.config.getString("server.url");
-        String[] appAllowNavigationConfig = this.config.getArray("server.allowNavigation");
+        appUrlConfig = this.getServerUrl();
+        String[] appAllowNavigationConfig = this.config.getAllowNavigation();
 
         ArrayList<String> authorities = new ArrayList<>();
         if (appAllowNavigationConfig != null) {
@@ -178,7 +181,7 @@ public class Bridge {
         }
         this.appAllowNavigationMask = HostMask.Parser.parse(appAllowNavigationConfig);
 
-        String authority = this.config.getString("server.hostname", "localhost");
+        String authority = this.getHost();
         authorities.add(authority);
 
         String scheme = this.getScheme();
@@ -200,7 +203,7 @@ public class Bridge {
             }
         }
 
-        final boolean html5mode = this.config.getBoolean("server.html5mode", true);
+        final boolean html5mode = this.config.isHTML5Mode();
 
         // Start the local web server
         localServer = new WebViewLocalServer(context, this, getJSInjector(), authorities, html5mode);
@@ -280,6 +283,10 @@ public class Bridge {
         return preferences.getBoolean("DisableDeploy", false);
     }
 
+    public boolean shouldKeepRunning() {
+        return preferences.getBoolean("KeepRunning", true);
+    }
+
     public void handleAppUrlLoadError(Exception ex) {
         if (ex instanceof SocketTimeoutException) {
             Logger.error(
@@ -296,6 +303,10 @@ public class Bridge {
         return (getActivity().getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
     }
 
+    protected void setCordovaWebView(CordovaWebView cordovaWebView) {
+        this.cordovaWebView = cordovaWebView;
+    }
+
     /**
      * Get the Context for the App
      * @return
@@ -308,7 +319,7 @@ public class Bridge {
      * Get the activity for the app
      * @return
      */
-    public Activity getActivity() {
+    public AppCompatActivity getActivity() {
         return this.context;
     }
 
@@ -333,7 +344,23 @@ public class Bridge {
      * @return
      */
     public String getScheme() {
-        return this.config.getString("server.androidScheme", CAPACITOR_HTTP_SCHEME);
+        return this.config.getAndroidScheme();
+    }
+
+    /**
+     * Get host name that is used to serve content
+     * @return
+     */
+    public String getHost() {
+        return this.config.getHostname();
+    }
+
+    /**
+     * Get the server url that is used to serve content
+     * @return
+     */
+    public String getServerUrl() {
+        return this.config.getServerUrl();
     }
 
     public CapConfig getConfig() {
@@ -356,41 +383,37 @@ public class Bridge {
         settings.setAppCacheEnabled(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setJavaScriptCanOpenWindowsAutomatically(true);
-        if (this.config.getBoolean("android.allowMixedContent", false)) {
+        if (this.config.isMixedContentAllowed()) {
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         }
 
-        String appendUserAgent = this.config.getString("android.appendUserAgent", this.config.getString("appendUserAgent", null));
+        String appendUserAgent = this.config.getAppendedUserAgentString();
         if (appendUserAgent != null) {
             String defaultUserAgent = settings.getUserAgentString();
             settings.setUserAgentString(defaultUserAgent + " " + appendUserAgent);
         }
-        String overrideUserAgent = this.config.getString("android.overrideUserAgent", this.config.getString("overrideUserAgent", null));
+        String overrideUserAgent = this.config.getOverriddenUserAgentString();
         if (overrideUserAgent != null) {
             settings.setUserAgentString(overrideUserAgent);
         }
 
-        String backgroundColor = this.config.getString("android.backgroundColor", this.config.getString("backgroundColor", null));
+        String backgroundColor = this.config.getBackgroundColor();
         try {
             if (backgroundColor != null) {
-                webView.setBackgroundColor(Color.parseColor(backgroundColor));
+                webView.setBackgroundColor(WebColor.parseColor(backgroundColor));
             }
         } catch (IllegalArgumentException ex) {
             Logger.debug("WebView background color not applied");
         }
-        boolean defaultDebuggable = false;
-        if (isDevMode()) {
-            defaultDebuggable = true;
-        }
+
         webView.requestFocusFromTouch();
-        WebView.setWebContentsDebuggingEnabled(this.config.getBoolean("android.webContentsDebuggingEnabled", defaultDebuggable));
+        WebView.setWebContentsDebuggingEnabled(this.config.isWebContentsDebuggingEnabled());
     }
 
     /**
      * Register our core Plugin APIs
      */
     private void registerAllPlugins() {
-        this.registerPlugin(SplashScreen.class);
         this.registerPlugin(com.getcapacitor.plugin.WebView.class);
 
         for (Class<? extends Plugin> pluginClass : this.initialPlugins) {
@@ -763,7 +786,7 @@ public class Bridge {
                 if (validatePermissions(plugin.getInstance(), savedPermissionCall, permissions, grantResults)) {
                     // handle request permissions call
                     if (savedPermissionCall.getMethodName().equals("requestPermissions")) {
-                        savedPermissionCall.resolve(getPermissionStates(plugin.getInstance()));
+                        savedPermissionCall.resolve(plugin.getInstance().getPermissionStates());
                     } else {
                         // handle permission requests by other methods on the plugin
                         plugin.getInstance().onRequestPermissionsResult(savedPermissionCall, requestCode, permissions, grantResults);
@@ -911,7 +934,13 @@ public class Bridge {
             plugin.getInstance().saveCall(pluginCallForLastActivity);
         }
 
-        plugin.getInstance().handleOnActivityResult(pluginCallForLastActivity, requestCode, resultCode, data);
+        CapacitorPlugin pluginAnnotation = plugin.getPluginClass().getAnnotation(CapacitorPlugin.class);
+        if (pluginAnnotation != null) {
+            // Use new callback with new @CapacitorPlugin plugins
+            plugin.getInstance().handleOnActivityResult(pluginCallForLastActivity, requestCode, resultCode, data);
+        } else {
+            plugin.getInstance().handleOnActivityResult(requestCode, resultCode, data);
+        }
 
         // Clear the plugin call we may have re-hydrated on app launch
         pluginCallForLastActivity = null;
@@ -924,6 +953,20 @@ public class Bridge {
     public void onNewIntent(Intent intent) {
         for (PluginHandle plugin : plugins.values()) {
             plugin.getInstance().handleOnNewIntent(intent);
+        }
+
+        if (cordovaWebView != null) {
+            cordovaWebView.onNewIntent(intent);
+        }
+    }
+
+    /**
+     * Handle an onConfigurationChanged event and notify the plugins
+     * @param newConfig
+     */
+    public void onConfigurationChanged(Configuration newConfig) {
+        for (PluginHandle plugin : plugins.values()) {
+            plugin.getInstance().handleOnConfigurationChanged(newConfig);
         }
     }
 
@@ -943,6 +986,10 @@ public class Bridge {
         for (PluginHandle plugin : plugins.values()) {
             plugin.getInstance().handleOnStart();
         }
+
+        if (cordovaWebView != null) {
+            cordovaWebView.handleStart();
+        }
     }
 
     /**
@@ -952,16 +999,23 @@ public class Bridge {
         for (PluginHandle plugin : plugins.values()) {
             plugin.getInstance().handleOnResume();
         }
+
+        if (cordovaWebView != null) {
+            cordovaWebView.handleResume(this.shouldKeepRunning());
+        }
     }
 
     /**
      * Handle onPause lifecycle event and notify the plugins
      */
     public void onPause() {
-        Splash.onPause();
-
         for (PluginHandle plugin : plugins.values()) {
             plugin.getInstance().handleOnPause();
+        }
+
+        if (cordovaWebView != null) {
+            boolean keepRunning = this.shouldKeepRunning() || cordovaInterface.getActivityResultCallback() != null;
+            cordovaWebView.handlePause(keepRunning);
         }
     }
 
@@ -971,6 +1025,10 @@ public class Bridge {
     public void onStop() {
         for (PluginHandle plugin : plugins.values()) {
             plugin.getInstance().handleOnStop();
+        }
+
+        if (cordovaWebView != null) {
+            cordovaWebView.handleStop();
         }
     }
 
@@ -983,6 +1041,18 @@ public class Bridge {
         }
 
         handlerThread.quitSafely();
+
+        if (cordovaWebView != null) {
+            cordovaWebView.handleDestroy();
+        }
+    }
+
+    /**
+     * Handle onDetachedFromWindow lifecycle event
+     */
+    public void onDetachedFromWindow() {
+        webView.removeAllViews();
+        webView.destroy();
     }
 
     public void onBackPressed() {
@@ -1040,5 +1110,77 @@ public class Bridge {
 
     public void setWebViewClient(BridgeWebViewClient client) {
         this.webViewClient = client;
+    }
+
+    public static class Builder {
+
+        private Bundle instanceState = null;
+        private CapConfig config = null;
+        private List<Class<? extends Plugin>> plugins = new ArrayList<>();
+        private AppCompatActivity activity = null;
+        private Context context = null;
+        private WebView webView = null;
+
+        protected Builder setActivity(AppCompatActivity activity) {
+            this.activity = activity;
+            this.context = activity.getApplicationContext();
+            this.webView = activity.findViewById(R.id.webview);
+            return this;
+        }
+
+        public Builder setInstanceState(Bundle instanceState) {
+            this.instanceState = instanceState;
+            return this;
+        }
+
+        public Builder setConfig(CapConfig config) {
+            this.config = config;
+            return this;
+        }
+
+        public Builder setPlugins(List<Class<? extends Plugin>> plugins) {
+            this.plugins = plugins;
+            return this;
+        }
+
+        public Builder addPlugin(Class<? extends Plugin> plugin) {
+            this.plugins.add(plugin);
+            return this;
+        }
+
+        public Builder addPlugins(List<Class<? extends Plugin>> plugins) {
+            for (Class<? extends Plugin> cls : plugins) {
+                this.addPlugin(cls);
+            }
+
+            return this;
+        }
+
+        public Bridge create() {
+            // Cordova initialization
+            ConfigXmlParser parser = new ConfigXmlParser();
+            parser.parse(context);
+            CordovaPreferences preferences = parser.getPreferences();
+            preferences.setPreferencesBundle(activity.getIntent().getExtras());
+            List<PluginEntry> pluginEntries = parser.getPluginEntries();
+            MockCordovaInterfaceImpl cordovaInterface = new MockCordovaInterfaceImpl(activity);
+            if (instanceState != null) {
+                cordovaInterface.restoreInstanceState(instanceState);
+            }
+            MockCordovaWebViewImpl mockWebView = new MockCordovaWebViewImpl(context);
+            mockWebView.init(cordovaInterface, pluginEntries, preferences, webView);
+            PluginManager pluginManager = mockWebView.getPluginManager();
+            cordovaInterface.onCordovaInit(pluginManager);
+
+            // Bridge initialization
+            Bridge bridge = new Bridge(activity, webView, plugins, cordovaInterface, pluginManager, preferences, config);
+            bridge.setCordovaWebView(mockWebView);
+
+            if (instanceState != null) {
+                bridge.restoreInstanceState(instanceState);
+            }
+
+            return bridge;
+        }
     }
 }
