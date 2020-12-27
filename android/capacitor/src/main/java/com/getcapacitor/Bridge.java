@@ -150,7 +150,7 @@ public class Bridge {
         handlerThread.start();
         taskHandler = new Handler(handlerThread.getLooper());
 
-        this.config = config != null ? config : CapConfig.fromFile(getActivity());
+        this.config = config != null ? config : CapConfig.loadDefault(getActivity());
         Logger.init(this.config);
 
         // Initialize web view and message handler for it
@@ -1112,20 +1112,15 @@ public class Bridge {
         this.webViewClient = client;
     }
 
-    public static class Builder {
+    static class Builder {
 
         private Bundle instanceState = null;
         private CapConfig config = null;
         private List<Class<? extends Plugin>> plugins = new ArrayList<>();
-        private AppCompatActivity activity = null;
-        private Context context = null;
-        private WebView webView = null;
+        private AppCompatActivity activity;
 
-        protected Builder setActivity(AppCompatActivity activity) {
+        Builder(AppCompatActivity activity) {
             this.activity = activity;
-            this.context = activity.getApplicationContext();
-            this.webView = activity.findViewById(R.id.webview);
-            return this;
         }
 
         public Builder setInstanceState(Bundle instanceState) {
@@ -1159,15 +1154,18 @@ public class Bridge {
         public Bridge create() {
             // Cordova initialization
             ConfigXmlParser parser = new ConfigXmlParser();
-            parser.parse(context);
+            parser.parse(activity.getApplicationContext());
             CordovaPreferences preferences = parser.getPreferences();
             preferences.setPreferencesBundle(activity.getIntent().getExtras());
             List<PluginEntry> pluginEntries = parser.getPluginEntries();
+
             MockCordovaInterfaceImpl cordovaInterface = new MockCordovaInterfaceImpl(activity);
             if (instanceState != null) {
                 cordovaInterface.restoreInstanceState(instanceState);
             }
-            MockCordovaWebViewImpl mockWebView = new MockCordovaWebViewImpl(context);
+
+            WebView webView = activity.findViewById(R.id.webview);
+            MockCordovaWebViewImpl mockWebView = new MockCordovaWebViewImpl(activity.getApplicationContext());
             mockWebView.init(cordovaInterface, pluginEntries, preferences, webView);
             PluginManager pluginManager = mockWebView.getPluginManager();
             cordovaInterface.onCordovaInit(pluginManager);
