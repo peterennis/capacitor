@@ -1,6 +1,6 @@
-import { pathExists, readJSON } from '@ionic/utils-fs';
+import { pathExists, readFile, readJSON } from '@ionic/utils-fs';
 import Debug from 'debug';
-import { dirname, join, resolve } from 'path';
+import { dirname, join, relative, resolve } from 'path';
 
 import c from './colors';
 import type {
@@ -13,9 +13,11 @@ import type {
   WebConfig,
 } from './definitions';
 import { OS } from './definitions';
-import { logFatal } from './log';
+import { fatal, isFatal } from './errors';
+import { logger } from './log';
 import { tryFn } from './util/fn';
 import { resolveNode, requireTS } from './util/node';
+import { lazy } from './util/promise';
 
 const debug = Debug('capacitor:config');
 
@@ -68,7 +70,7 @@ async function loadExtConfigTS(
     const tsPath = resolveNode(rootDir, 'typescript');
 
     if (!tsPath) {
-      logFatal(
+      fatal(
         'Could not find installation of TypeScript.\n' +
           `To use ${c.strong(
             extConfigName,
@@ -79,15 +81,21 @@ async function loadExtConfigTS(
     }
 
     const ts = require(tsPath); // eslint-disable-line @typescript-eslint/no-var-requires
+    const extConfigObject = requireTS(ts, extConfigFilePath) as any;
+    const extConfig = extConfigObject.default ?? extConfigObject;
 
     return {
       extConfigType: 'ts',
       extConfigName,
       extConfigFilePath: extConfigFilePath,
-      extConfig: requireTS(ts, extConfigFilePath) as any,
+      extConfig,
     };
   } catch (e) {
-    logFatal(`Parsing ${c.strong(extConfigName)} failed.\n\n${e.stack ?? e}`);
+    if (!isFatal(e)) {
+      fatal(`Parsing ${c.strong(extConfigName)} failed.\n\n${e.stack ?? e}`);
+    }
+
+    throw e;
   }
 }
 
@@ -104,7 +112,7 @@ async function loadExtConfigJS(
       extConfig: require(extConfigFilePath),
     };
   } catch (e) {
-    logFatal(`Parsing ${c.strong(extConfigName)} failed.\n\n${e.stack ?? e}`);
+    fatal(`Parsing ${c.strong(extConfigName)} failed.\n\n${e.stack ?? e}`);
   }
 }
 
@@ -195,7 +203,7 @@ async function loadAndroidConfig(
   const resDir = `${srcMainDir}/res`;
   const buildOutputDir = `${appDir}/build/outputs/apk/debug`;
   const cordovaPluginsDir = 'capacitor-cordova-android-plugins';
-  const studioPath = await determineAndroidStudioPath(cliConfig.os);
+  const studioPath = lazy(() => determineAndroidStudioPath(cliConfig.os));
 
   return {
     name,
@@ -231,8 +239,21 @@ async function loadIOSConfig(
   const platformDir = extConfig.ios?.path ?? 'ios';
   const platformDirAbs = resolve(rootDir, platformDir);
   const nativeProjectDir = 'App';
+  const nativeProjectDirAbs = resolve(platformDirAbs, nativeProjectDir);
   const nativeTargetDir = `${nativeProjectDir}/App`;
-  const webDir = `${nativeProjectDir}/public`;
+  const nativeTargetDirAbs = resolve(platformDirAbs, nativeTargetDir);
+  const nativeXcodeProjDir = `${nativeProjectDir}/App.xcodeproj`;
+  const nativeXcodeProjDirAbs = resolve(platformDirAbs, nativeXcodeProjDir);
+  const nativeXcodeWorkspaceDirAbs = lazy(() =>
+    determineXcodeWorkspaceDirAbs(nativeProjectDirAbs),
+  );
+  const webDirAbs = lazy(() =>
+    determineIOSWebDirAbs(
+      nativeProjectDirAbs,
+      nativeTargetDirAbs,
+      nativeXcodeProjDirAbs,
+    ),
+  );
   const cordovaPluginsDir = 'capacitor-cordova-ios-plugins';
 
   return {
@@ -243,11 +264,17 @@ async function loadIOSConfig(
     cordovaPluginsDir,
     cordovaPluginsDirAbs: resolve(platformDirAbs, cordovaPluginsDir),
     nativeProjectDir,
-    nativeProjectDirAbs: resolve(platformDirAbs, nativeProjectDir),
+    nativeProjectDirAbs,
     nativeTargetDir,
-    nativeTargetDirAbs: resolve(platformDirAbs, nativeTargetDir),
-    webDir,
-    webDirAbs: resolve(platformDirAbs, webDir),
+    nativeTargetDirAbs,
+    nativeXcodeProjDir,
+    nativeXcodeProjDirAbs,
+    nativeXcodeWorkspaceDir: lazy(async () =>
+      relative(platformDirAbs, await nativeXcodeWorkspaceDirAbs),
+    ),
+    nativeXcodeWorkspaceDirAbs,
+    webDir: lazy(async () => relative(platformDirAbs, await webDirAbs)),
+    webDirAbs,
     podPath,
   };
 }
@@ -277,6 +304,56 @@ function determineOS(os: NodeJS.Platform): OS {
   }
 
   return OS.Unknown;
+}
+
+async function determineXcodeWorkspaceDirAbs(
+  nativeProjectDirAbs: string,
+): Promise<string> {
+  const xcodeDir = resolve(nativeProjectDirAbs, 'App.xcworkspace');
+
+  if (!(await pathExists(xcodeDir))) {
+    fatal(
+      'Xcode workspace does not exist.\n' +
+        `Run ${c.input('npx cap add ios')} to bootstrap a new iOS project.`,
+    );
+  }
+
+  return xcodeDir;
+}
+
+async function determineIOSWebDirAbs(
+  nativeProjectDirAbs: string,
+  nativeTargetDirAbs: string,
+  nativeXcodeProjDirAbs: string,
+): Promise<string> {
+  const re = /path\s=\spublic[\s\S]+?sourceTree\s=\s([^;]+)/;
+  const pbxprojPath = resolve(nativeXcodeProjDirAbs, 'project.pbxproj');
+  const pbxproj = await readFile(pbxprojPath, { encoding: 'utf8' });
+
+  const m = pbxproj.match(re);
+
+  if (m === null) {
+    fatal(`Unrecognized structure in ${c.strong(pbxprojPath)}`);
+  }
+
+  const [, sourceTree] = m;
+
+  if (sourceTree === 'SOURCE_ROOT') {
+    logger.warn(
+      `Using the iOS project root for the ${c.strong(
+        'public',
+      )} directory is deprecated.\n` +
+        `Please follow the Upgrade Guide to move ${c.strong(
+          'public',
+        )} inside the iOS target directory: ${c.strong(
+          'https://capacitorjs.com/docs/v3/updating/3-0#move-public-into-the-ios-target-directory',
+        )}`,
+    );
+
+    return resolve(nativeProjectDirAbs, 'public');
+  }
+
+  return resolve(nativeTargetDirAbs, 'public');
 }
 
 async function determineAndroidStudioPath(os: OS): Promise<string> {

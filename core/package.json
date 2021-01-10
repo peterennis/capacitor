@@ -1,6 +1,6 @@
 {
   "name": "@capacitor/core",
-  "version": "3.0.0-alpha.9",
+  "version": "3.0.0-alpha.12",
   "description": "Capacitor: cross-platform mobile apps with the web",
   "homepage": "https://capacitorjs.com/",
   "author": "Ionic Team <hi@ionic.io> (https://ionicframework.com) ",
@@ -24,7 +24,7 @@
   "types": "types/index.d.ts",
   "unpkg": "dist/capacitor.js",
   "dependencies": {
-    "tslib": "^2.0.3"
+    "tslib": "^2.1.0"
   },
   "devDependencies": {
     "@rollup/plugin-node-resolve": "^10.0.0",

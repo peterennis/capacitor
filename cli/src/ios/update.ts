@@ -9,7 +9,7 @@ import {
   logCordovaManualSteps,
 } from '../cordova';
 import type { Config } from '../definitions';
-import { logFatal } from '../log';
+import { fatal } from '../errors';
 import type { Plugin } from '../plugin';
 import {
   PluginType,
@@ -106,11 +106,7 @@ async function updatePodfile(
 
   await runCommand(
     'xcodebuild',
-    [
-      '-project',
-      basename(`${config.ios.nativeTargetDirAbs}.xcodeproj`),
-      'clean',
-    ],
+    ['-project', basename(`${config.ios.nativeXcodeProjDirAbs}`), 'clean'],
     {
       cwd: config.ios.nativeProjectDirAbs,
     },
@@ -127,7 +123,7 @@ async function generatePodFile(
     'package.json',
   );
   if (!capacitoriOSPath) {
-    logFatal(
+    fatal(
       `Unable to find node_modules/@capacitor/ios.\n` +
         `Are you sure ${c.strong('@capacitor/ios')} is installed?`,
     );
