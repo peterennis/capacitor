@@ -3,6 +3,48 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [3.0.0-beta.1](https://github.com/ionic-team/capacitor/compare/3.0.0-beta.0...3.0.0-beta.1) (2021-01-14)
+
+**Note:** Version bump only for package @capacitor/cli
+
+
+
+
+
+# [3.0.0-beta.0](https://github.com/ionic-team/capacitor/compare/3.0.0-alpha.14...3.0.0-beta.0) (2021-01-13)
+
+**Note:** Version bump only for package @capacitor/cli
+
+
+
+
+
+# [3.0.0-alpha.14](https://github.com/ionic-team/capacitor/compare/3.0.0-alpha.13...3.0.0-alpha.14) (2021-01-13)
+
+
+### Bug Fixes
+
+* **cli:** bump minimum node version to 12.4.0 ([#4059](https://github.com/ionic-team/capacitor/issues/4059)) ([61e3be0](https://github.com/ionic-team/capacitor/commit/61e3be0c865a3591a0d6bcfc27d0bbb72ee98395))
+* **cli:** default to new directory instead of crashing ([70fdf0b](https://github.com/ionic-team/capacitor/commit/70fdf0be0e0f06b4f20e20a3ae4bfef4de2374e9))
+
+
+
+
+
+# [3.0.0-alpha.13](https://github.com/ionic-team/capacitor/compare/3.0.0-alpha.12...3.0.0-alpha.13) (2021-01-13)
+
+
+### Bug Fixes
+
+* **cli:** use stderr for logs when using --json option ([#4044](https://github.com/ionic-team/capacitor/issues/4044)) ([452a101](https://github.com/ionic-team/capacitor/commit/452a101648fe6da4232d18985c5d814920505920))
+
+
+### Features
+
+* **cli:** create TS configuration files in `init` ([#3999](https://github.com/ionic-team/capacitor/issues/3999)) ([fa7003e](https://github.com/ionic-team/capacitor/commit/fa7003e4ef1d988633abb85b1b109c51b94fda42))
+
+
+
 # [3.0.0-alpha.12](https://github.com/ionic-team/capacitor/compare/3.0.0-alpha.11...3.0.0-alpha.12) (2021-01-08)
 
 

@@ -876,7 +876,7 @@ public class Bridge {
                         String state = prefs.getString(permString, null);
 
                         if (state != null) {
-                            permissionStatus = PermissionState.valueOf(state);
+                            permissionStatus = PermissionState.byState(state);
                         }
                     }
 
@@ -1039,19 +1039,6 @@ public class Bridge {
     public void onDetachedFromWindow() {
         webView.removeAllViews();
         webView.destroy();
-    }
-
-    public void onBackPressed() {
-        // If there are listeners, don't do the default action, as this means the user
-        // wants to override the back button
-        if (app.hasBackButtonListeners()) {
-            app.fireBackButton();
-            triggerJSEvent("backbutton", "document");
-        } else {
-            if (webView.canGoBack()) {
-                webView.goBack();
-            }
-        }
     }
 
     public String getServerBasePath() {

@@ -8,7 +8,9 @@ extension Int: JSValue {}
 extension Float: JSValue {}
 extension Double: JSValue {}
 extension NSNumber: JSValue {}
+extension NSNull: JSValue {}
 extension Array: JSValue {}
+extension Date: JSValue {}
 extension Dictionary: JSValue where Key == String, Value == JSValue {}
 
 // convenience aliases
@@ -151,7 +153,7 @@ extension JSValueContainer {
         if let isoString = jsObjectRepresentation[key] as? String {
             return Self.jsDateFormatter.date(from: isoString)
         }
-        return nil
+        return jsObjectRepresentation[key] as? Date
     }
 
     public func getArray(_ key: String) -> JSArray? {
@@ -182,6 +184,10 @@ extension JSTypes {
     public static func coerceDictionaryToJSObject(_ dictionary: [AnyHashable: Any]?) -> JSObject? {
         return coerceToJSValue(dictionary) as? JSObject
     }
+    
+    public static func coerceArrayToJSArray(_ array: [Any]?) -> JSArray? {
+        return array?.compactMap { coerceToJSValue($0) }
+    }
 }
 
 private func coerceToJSValue(_ value: Any?) -> JSValue? {
@@ -201,6 +207,10 @@ private func coerceToJSValue(_ value: Any?) -> JSValue? {
         return floatValue
     case let doubleValue as Double:
         return doubleValue
+    case let dateValue as Date:
+        return dateValue
+    case let nullValue as NSNull:
+        return nullValue
     case let arrayValue as NSArray:
         return arrayValue.compactMap { coerceToJSValue($0) }
     case let dictionaryValue as NSDictionary:

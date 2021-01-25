@@ -32,7 +32,7 @@ export async function runCommand(
   if (selectedPlatformName && !(await isValidPlatform(selectedPlatformName))) {
     const platformDir = resolvePlatform(config, selectedPlatformName);
     if (platformDir) {
-      await runPlatformHook(platformDir, 'capacitor:run');
+      await runPlatformHook(config, platformDir, 'capacitor:run');
     } else {
       logger.error(`Platform ${c.input(selectedPlatformName)} not found.`);
     }
@@ -64,7 +64,7 @@ export async function runCommand(
 
       // TODO: make hidden commander option (https://github.com/tj/commander.js/issues/1106)
       if (process.argv.includes('--json')) {
-        output.write(JSON.stringify(outputTargets));
+        process.stdout.write(`${JSON.stringify(outputTargets)}\n`);
       } else {
         const rows = outputTargets.map(t => [t.name, t.api, t.id]);
 
