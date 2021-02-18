@@ -10,7 +10,7 @@ describe('legacy', () => {
   const LegacyWebPlugin = class extends WebPlugin {};
   const orgConsoleWarn = console.warn;
   const noop = () => {
-    /**/
+    // do nothing
   };
 
   beforeAll(() => {
@@ -78,7 +78,7 @@ describe('legacy', () => {
     expect(cap.Plugins['Legacy']).toBe(Legacy);
   });
 
-  it('error registerWebPlugin() w/out config.name', () => {
+  it('error registerWebPlugin() w/out config.name', async () => {
     win = {};
     cap = createCapacitor(win) as any;
 
@@ -89,7 +89,7 @@ describe('legacy', () => {
     );
   });
 
-  it('error registerWebPlugin() w/out config', () => {
+  it('error registerWebPlugin() w/out config', async () => {
     win = {};
     cap = createCapacitor(win) as any;
 
@@ -102,13 +102,13 @@ describe('legacy', () => {
 
   it('doc.addEventListener backbutton', done => {
     const AppWeb = class {
-      addListener(eventName: string) {
-        expect(eventName).toBe('backButton');
+      async addListener(event: any) {
+        expect(event.eventName).toBe('backButton');
         done();
       }
     };
     const bbCallback = () => {
-      /**/
+      // ignore
     };
     win = {
       document: {
@@ -116,10 +116,12 @@ describe('legacy', () => {
           expect(eventName).toBe('backbutton');
         },
       },
+      androidBridge: { postMessage: noop },
     };
     cap = createCapacitor(win);
     cap.registerPlugin<any>('App', {
       web: new AppWeb(),
+      android: new AppWeb(),
     });
 
     win.document.addEventListener('backbutton', bbCallback);
@@ -129,9 +131,10 @@ describe('legacy', () => {
     win = {
       document: {
         addEventListener() {
-          /**/
+          // ignore
         },
       },
+      androidBridge: { postMessage: noop },
     };
     createCapacitor(win);
     win.document.addEventListener('deviceready', done);
@@ -140,13 +143,16 @@ describe('legacy', () => {
   it('add navigator.app.exitApp', () => {
     win = {
       navigator: {},
+      androidBridge: { postMessage: noop },
     };
     createCapacitor(win);
     expect(win.navigator.app.exitApp).toBeDefined();
   });
 
   it('cordova global', () => {
-    win = {};
+    win = {
+      androidBridge: { postMessage: noop },
+    };
     createCapacitor(win);
     expect(win.cordova).toBeDefined();
   });
