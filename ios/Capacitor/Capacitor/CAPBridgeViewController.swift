@@ -13,7 +13,7 @@ import Cordova
     public var isStatusBarVisible = true
     public var statusBarStyle: UIStatusBarStyle = .default
     public var statusBarAnimation: UIStatusBarAnimation = .slide
-    public var supportedOrientations: [Int] = []
+    @objc public var supportedOrientations: [Int] = []
 
     public lazy final var isNewBinary: Bool = {
         if let curVersionCode = Bundle.main.infoDictionary?["CFBundleVersion"] as? String,
@@ -191,21 +191,15 @@ import Cordova
     }
 
     override open var prefersStatusBarHidden: Bool {
-        get {
-            return !isStatusBarVisible
-        }
+        return !isStatusBarVisible
     }
 
     override open var preferredStatusBarStyle: UIStatusBarStyle {
-        get {
-            return statusBarStyle
-        }
+        return statusBarStyle
     }
 
     override open var preferredStatusBarUpdateAnimation: UIStatusBarAnimation {
-        get {
-            return statusBarAnimation
-        }
+        return statusBarAnimation
     }
 
     open func setStatusBarVisible(_ isStatusBarVisible: Bool) {
