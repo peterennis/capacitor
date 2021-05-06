@@ -4,6 +4,7 @@ import type {
   PluginResultData,
   PluginResultError,
 } from './definitions';
+import type { CapacitorPlatformsInstance } from './platforms';
 
 export interface PluginHeaderMethod {
   readonly name: string;
@@ -36,6 +37,12 @@ export interface CapacitorInstance extends CapacitorGlobal {
   PluginHeaders?: readonly PluginHeader[];
 
   /**
+   * Gets the WebView server urls set by the native web view. Defaults
+   * to "" if not running from a native platform.
+   */
+  getServerUrl: () => string;
+
+  /**
    * Low-level API to send data to the native layer.
    * Prefer using `nativeCallback()` or `nativePromise()` instead.
    * Returns the Callback Id.
@@ -46,6 +53,28 @@ export interface CapacitorInstance extends CapacitorGlobal {
     options: any,
     storedCallback?: StoredCallback,
   ) => string;
+
+  /**
+   * Sends data over the bridge to the native layer.
+   * Returns the Callback Id.
+   */
+  nativeCallback: <O>(
+    pluginName: string,
+    methodName: string,
+    options?: O,
+    callback?: PluginCallback,
+  ) => string;
+
+  /**
+   * Sends data over the bridge to the native layer and
+   * resolves the promise when it receives the data from
+   * the native implementation.
+   */
+  nativePromise: <O, R>(
+    pluginName: string,
+    methodName: string,
+    options?: O,
+  ) => Promise<R>;
 
   /**
    * Low-level API used by the native layers to send
@@ -70,7 +99,7 @@ export interface CapacitorInstance extends CapacitorGlobal {
   handleError: (err: Error) => void;
 
   handleWindowError: (
-    msg: string,
+    msg: string | Event,
     url: string,
     lineNo: number,
     columnNo: number,
@@ -138,6 +167,7 @@ export interface StoredCallback {
 
 export interface WindowCapacitor {
   Capacitor?: CapacitorInstance;
+  CapacitorPlatforms?: CapacitorPlatformsInstance;
   Ionic?: {
     WebView?: {
       getServerBasePath?: any;

@@ -1,18 +1,11 @@
-import { getPlatformId, initBridge } from './bridge';
 import type { CapacitorGlobal, PluginImplementations } from './definitions';
 import type {
   CapacitorInstance,
   PluginHeader,
   WindowCapacitor,
 } from './definitions-internal';
-import { initEvents } from './events';
-import { initLegacyHandlers } from './legacy/legacy-handlers';
-import {
-  CapacitorException,
-  convertFileSrcServerUrl,
-  ExceptionCode,
-} from './util';
-import { initVendor } from './vendor';
+import type { CapacitorPlatformsInstance } from './platforms';
+import { CapacitorException, getPlatformId, ExceptionCode } from './util';
 
 export interface RegisteredPlugin {
   readonly name: string;
@@ -22,17 +15,18 @@ export interface RegisteredPlugin {
 
 export const createCapacitor = (win: WindowCapacitor): CapacitorInstance => {
   const cap: CapacitorInstance = win.Capacitor || ({} as any);
-
   const Plugins = (cap.Plugins = cap.Plugins || ({} as any));
+  const capPlatforms: CapacitorPlatformsInstance = win.CapacitorPlatforms;
 
-  const webviewServerUrl =
-    typeof win.WEBVIEW_SERVER_URL === 'string' ? win.WEBVIEW_SERVER_URL : '';
+  const defaultGetPlatform = () => getPlatformId(win);
+  const getPlatform =
+    capPlatforms?.currentPlatform?.getPlatform || defaultGetPlatform;
 
-  const getPlatform = () => getPlatformId(win);
+  const defaultIsNativePlatform = () => getPlatformId(win) !== 'web';
+  const isNativePlatform =
+    capPlatforms?.currentPlatform?.isNativePlatform || defaultIsNativePlatform;
 
-  const isNativePlatform = () => getPlatformId(win) !== 'web';
-
-  const isPluginAvailable = (pluginName: string): boolean => {
+  const defaultIsPluginAvailable = (pluginName: string): boolean => {
     const plugin = registeredPlugins.get(pluginName);
 
     if (plugin?.platforms.has(getPlatform())) {
@@ -47,28 +41,16 @@ export const createCapacitor = (win: WindowCapacitor): CapacitorInstance => {
 
     return false;
   };
+  const isPluginAvailable =
+    capPlatforms?.currentPlatform?.isPluginAvailable ||
+    defaultIsPluginAvailable;
 
-  const getPluginHeader = (pluginName: string): PluginHeader | undefined =>
+  const defaultGetPluginHeader = (
+    pluginName: string,
+  ): PluginHeader | undefined =>
     cap.PluginHeaders?.find(h => h.name === pluginName);
-
-  const convertFileSrc = (filePath: string) =>
-    convertFileSrcServerUrl(webviewServerUrl, filePath);
-
-  const logJs = (msg: string, level: 'error' | 'warn' | 'info' | 'log') => {
-    switch (level) {
-      case 'error':
-        win.console.error(msg);
-        break;
-      case 'warn':
-        win.console.warn(msg);
-        break;
-      case 'info':
-        win.console.info(msg);
-        break;
-      default:
-        win.console.log(msg);
-    }
-  };
+  const getPluginHeader =
+    capPlatforms?.currentPlatform?.getPluginHeader || defaultGetPluginHeader;
 
   const handleError = (err: Error) => win.console.error(err);
 
@@ -84,7 +66,7 @@ export const createCapacitor = (win: WindowCapacitor): CapacitorInstance => {
 
   const registeredPlugins = new Map<string, RegisteredPlugin>();
 
-  const registerPlugin = (
+  const defaultRegisterPlugin = (
     pluginName: string,
     jsImplementations: PluginImplementations = {},
   ): any => {
@@ -116,11 +98,8 @@ export const createCapacitor = (win: WindowCapacitor): CapacitorInstance => {
       impl: any,
       prop: PropertyKey,
     ): ((...args: any[]) => any) => {
-      if (impl) {
-        return impl[prop]?.bind(impl);
-      } else if (pluginHeader) {
-        const methodHeader = pluginHeader.methods.find(m => prop === m.name);
-
+      if (pluginHeader) {
+        const methodHeader = pluginHeader?.methods.find(m => prop === m.name);
         if (methodHeader) {
           if (methodHeader.rtype === 'promise') {
             return (options: any) =>
@@ -134,7 +113,11 @@ export const createCapacitor = (win: WindowCapacitor): CapacitorInstance => {
                 callback,
               );
           }
+        } else if (impl) {
+          return impl[prop]?.bind(impl);
         }
+      } else if (impl) {
+        return impl[prop]?.bind(impl);
       } else {
         throw new CapacitorException(
           `"${pluginName}" plugin is not implemented on ${platform}`,
@@ -239,23 +222,27 @@ export const createCapacitor = (win: WindowCapacitor): CapacitorInstance => {
 
     return proxy;
   };
+  const registerPlugin =
+    capPlatforms?.currentPlatform?.registerPlugin || defaultRegisterPlugin;
 
-  cap.convertFileSrc = convertFileSrc;
+  // Add in convertFileSrc for web, it will already be available in native context
+  if (!cap.convertFileSrc) {
+    cap.convertFileSrc = filePath => filePath;
+  }
+
   cap.getPlatform = getPlatform;
-  cap.getServerUrl = () => webviewServerUrl;
   cap.handleError = handleError;
   cap.isNativePlatform = isNativePlatform;
   cap.isPluginAvailable = isPluginAvailable;
-  cap.logJs = logJs;
   cap.pluginMethodNoop = pluginMethodNoop;
   cap.registerPlugin = registerPlugin;
   cap.Exception = CapacitorException;
   cap.DEBUG = !!cap.DEBUG;
+  cap.isLoggingEnabled = !!cap.isLoggingEnabled;
 
-  initBridge(win, cap);
-  initEvents(win, cap);
-  initVendor(win, cap);
-  initLegacyHandlers(win, cap);
+  // Deprecated props
+  cap.platform = cap.getPlatform();
+  cap.isNative = cap.isNativePlatform();
 
   return cap;
 };
