@@ -3,10 +3,11 @@ import { prettyPath } from '@ionic/utils-terminal';
 import { dirname, join } from 'path';
 
 import c from './colors';
-import type { Config, PackageJson } from './definitions';
 import { fatal } from './errors';
 import { output, logger } from './log';
 import { resolveNode } from './util/node';
+
+import type { Config, PackageJson } from './definitions';
 
 export type CheckFunction = () => Promise<string | null>;
 
@@ -42,7 +43,7 @@ export async function checkWebDir(config: Config): Promise<string | null> {
       )} option). You may need to compile the web assets for your app (typically ${c.input(
         'npm run build',
       )}). More info: ${c.strong(
-        'https://capacitorjs.com/docs/v3/basics/workflow#sync-your-project',
+        'https://capacitorjs.com/docs/basics/workflow#sync-your-project',
       )}`
     );
   }
@@ -307,7 +308,7 @@ export async function selectPlatforms(
           `See the docs for adding the ${c.strong(
             platformName,
           )} platform: ${c.strong(
-            `https://capacitorjs.com/docs/v3/${platformName}#adding-the-${platformName}-platform`,
+            `https://capacitorjs.com/docs/${platformName}#adding-the-${platformName}-platform`,
           )}`,
       );
     }

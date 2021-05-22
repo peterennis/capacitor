@@ -1,3 +1,7 @@
+/**
+ * Note: When making changes to this file, run `npm run build:nativebridge`
+ * afterwards to build the nativebridge.js files to the android and iOS projects.
+ */
 import type {
   CallData,
   CapacitorInstance,
@@ -368,6 +372,8 @@ const initBridge = (w: any): void => {
     const getPlatform = () => getPlatformId(win);
 
     cap.getPlatform = getPlatform;
+    cap.isPluginAvailable = name =>
+      Object.prototype.hasOwnProperty.call(cap.Plugins, name);
     cap.isNativePlatform = isNativePlatform;
 
     // create the postToNative() fn if needed
